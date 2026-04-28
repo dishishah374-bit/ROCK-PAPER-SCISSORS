@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RPS · AI Vision</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg1: #0f0c1d;
+      --bg2: #1a1035;
+      --card: #ffffff;
+      --accent: #ff4d6d;
+      --accent2: #7b2ff7;
+      --accent3: #00d4aa;
+      --text: #1a1035;
+      --muted: #7a7a9d;
+      --border: #e8e3f5;
+      --glow: rgba(123, 47, 247, 0.35);
+    }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg1);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Animated gradient mesh background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(123,47,247,0.28) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(255,77,109,0.22) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 40% at 50% 50%, rgba(0,212,170,0.12) 0%, transparent 65%),
+        linear-gradient(135deg, #0f0c1d 0%, #1a1035 50%, #0c0a1e 100%);
+      animation: bgPulse 8s ease-in-out infinite alternate;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      z-index: 0;
+    }
+
+    @keyframes bgPulse {
+      0% { opacity: 1; }
+      100% { opacity: 0.75; transform: scale(1.04); }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      padding: 20px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    /* Floating orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(70px);
+      pointer-events: none;
+      z-index: 0;
+      animation: orbFloat 12s ease-in-out infinite;
+    }
+    .orb1 { width: 300px; height: 300px; background: rgba(123,47,247,0.18); top: -80px; left: -80px; animation-delay: 0s; }
+    .orb2 { width: 200px; height: 200px; background: rgba(255,77,109,0.15); bottom: -60px; right: -60px; animation-delay: 4s; }
+    .orb3 { width: 150px; height: 150px; background: rgba(0,212,170,0.12); bottom: 20%; left: -40px; animation-delay: 2s; }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(20px, -20px) scale(1.05); }
+      66% { transform: translate(-10px, 15px) scale(0.97); }
+    }
+
+    /* CARD */
+    .card {
+      background: var(--card);
+      border-radius: 28px;
+      box-shadow:
+        0 0 0 1px rgba(123,47,247,0.1),
+        0 8px 32px rgba(15,12,29,0.35),
+        0 32px 80px rgba(123,47,247,0.18),
+        0 0 80px rgba(123,47,247,0.06) inset;
+      overflow: hidden;
+      animation: cardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(36px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* HEADER */
+    .header {
+      background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+      padding: 28px 32px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(123,47,247,0.2) 0%, transparent 60%);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: rgba(255,255,255,0.6);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent3);
+      box-shadow: 0 0 8px var(--accent3);
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.1;
+      position: relative;
+      letter-spacing: -0.02em;
+    }
+
+    .header h1 span {
+      background: linear-gradient(90deg, #ff4d6d, #c678ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      color: rgba(255,255,255,0.45);
+      font-size: 13px;
+      margin-top: 6px;
+      font-weight: 400;
+      position: relative;
+    }
+
+    /* BODY */
+    .card-body {
+      padding: 28px 28px 24px;
+    }
+
+    /* WEBCAM AREA */
+    .webcam-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #f0ecfd 0%, #e8f4ff 100%);
+      aspect-ratio: 4/3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid var(--border);
+      box-shadow: 0 4px 24px rgba(123,47,247,0.1) inset;
+    }
+
+    .webcam-wrapper canvas,
+    .webcam-wrapper video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover;
+      border-radius: 18px;
+      display: block;
+    }
+
+    /* Corner accents */
+    .webcam-wrapper::before, .webcam-wrapper::after {
+      content: '';
+      position: absolute;
+      width: 22px; height: 22px;
+      border-color: var(--accent2);
+      border-style: solid;
+      z-index: 2;
+      border-radius: 3px;
+    }
+    .webcam-wrapper::before { top: 10px; left: 10px; border-width: 2px 0 0 2px; }
+    .webcam-wrapper::after  { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; }
+
+    /* Loading state */
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 20px;
+    }
+
+    .spinner {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent2);
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-state p {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+
+    /* PREDICTIONS */
+    .predictions {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .predictions-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .pred-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pred-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      width: 58px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pred-name .emoji {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .pred-bar-bg {
+      flex: 1;
+      height: 8px;
+      background: var(--border);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+
+    .pred-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      width: 0%;
+      transition: width 0.25s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    .pred-bar-fill.rock  { background: linear-gradient(90deg, #ff4d6d, #ff8fa3); }
+    .pred-bar-fill.paper { background: linear-gradient(90deg, #7b2ff7, #c678ff); }
+    .pred-bar-fill.scissors { background: linear-gradient(90deg, #00d4aa, #6effd4); }
+
+    .pred-pct {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      width: 38px;
+      text-align: right;
+    }
+
+    /* WINNER BADGE */
+    .winner-area {
+      margin-top: 18px;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, #f7f4ff 0%, #fff5f7 100%);
+      border-radius: 14px;
+      border: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 58px;
+      transition: all 0.3s ease;
+    }
+
+    .winner-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    .winner-value {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.25s ease;
+    }
+
+    .winner-value .big-emoji {
+      font-size: 32px;
+      animation: popIn 0.4s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    @keyframes popIn {
+      0%   { transform: scale(0.5) rotate(-15deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .confidence-chip {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 100px;
+      background: rgba(123,47,247,0.1);
+      color: var(--accent2);
+    }
+
+    /* START BUTTON */
+    .btn-start {
+      margin-top: 22px;
+      width: 100%;
+      padding: 16px 24px;
+      border: none;
+      border-radius: 14px;
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+      color: #fff;
+      letter-spacing: 0.02em;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 4px 20px rgba(123,47,247,0.4), 0 1px 4px rgba(0,0,0,0.18);
+    }
+
+    .btn-start::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 60%);
+    }
+
+    .btn-start:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(123,47,247,0.55), 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn-start:active {
+      transform: translateY(0px);
+      box-shadow: 0 3px 12px rgba(123,47,247,0.35);
+    }
+
+    .btn-start:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* FOOTER */
+    .card-footer {
+      padding: 14px 28px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-note {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+
+    .status-dot.active {
+      background: var(--accent3);
+      box-shadow: 0 0 8px var(--accent3);
+    }
+
+    /* Scanning line animation */
+    .scan-line {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent3), transparent);
+      z-index: 3;
+      display: none;
+      animation: scanDown 2s linear infinite;
+    }
+
+    .scan-line.active { display: block; }
+
+    @keyframes scanDown {
+      0%   { top: 0%;   opacity: 1; }
+      90%  { top: 100%; opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<div class="container">
+  <div class="card">
+    <!-- Header -->
+    <div class="header">
+      <div class="badge">AI Vision · Teachable Machine</div>
+      <h1>Rock <span>Paper</span><br>Scissors</h1>
+      <p>Hold up your hand · AI reads it in real time</p>
+    </div>
+
+    <!-- Body -->
+    <div class="card-body">
+
+      <!-- Webcam -->
+      <div class="webcam-wrapper" id="webcamWrapper">
+        <div class="scan-line" id="scanLine"></div>
+        <div class="loading-state" id="loadingState">
+          <div class="spinner"></div>
+          <p id="loadingMsg">Press Start to initialise camera</p>
+        </div>
+        <div id="webcamContainer" style="width:100%;height:100%;display:none;"></div>
+      </div>
+
+      <!-- Predictions -->
+      <div class="predictions">
+        <div class="predictions-label">Live Predictions</div>
+
+        <div class="pred-row">
+          <div class="pred-name"><span class="emoji">✊</span> Rock</div>
+          <div class="pred-bar-bg"><div class="pred-bar-fill rock" id="bar-Rock"></div></div>
+          <div class="pred-pct" id="pct-Rock">0%</div>
+        </div>
+
+        <div class="pred-row">
+          <div class="pred-name"><span class="emoji">🖐</span> Paper</div>
+          <div class="pred-bar-bg"><div class="pred-bar-fill paper" id="bar-Paper"></div></div>
+          <div class="pred-pct" id="pct-Paper">0%</div>
+        </div>
+
+        <div class="pred-row">
+          <div class="pred-name"><span class="emoji">✌️</span> Scissors</div>
+          <div class="pred-bar-bg"><div class="pred-bar-fill scissors" id="bar-Scissors"></div></div>
+          <div class="pred-pct" id="pct-Scissors">0%</div>
+        </div>
+      </div>
+
+      <!-- Winner -->
+      <div class="winner-area" id="winnerArea">
+        <div>
+          <div class="winner-label">Detected</div>
+          <div class="winner-value" id="winnerValue">
+            <span style="color:var(--muted);font-size:15px;font-weight:400;">Waiting…</span>
+          </div>
+        </div>
+        <div class="confidence-chip" id="confChip">–</div>
+      </div>
+
+      <!-- Button -->
+      <button class="btn-start" id="startBtn" onclick="init()">
+        ▶ &nbsp; Start Camera
+      </button>
+    </div>
+
+    <!-- Footer -->
+    <div class="card-footer">
+      <span class="footer-note">Powered by TensorFlow.js</span>
+      <div class="status-dot" id="statusDot"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const MODEL_URL = "https://teachablemachine.withgoogle.com/models/5R-D3HTrB/";
+  const EMOJIS = { Rock: "✊", Paper: "🖐", Scissors: "✌️" };
+
+  let model, webcam, maxPredictions;
+  let running = false;
+  let prevWinner = null;
+
+  async function init() {
+    const btn = document.getElementById("startBtn");
+    btn.disabled = true;
+    btn.textContent = "⏳  Loading model…";
+
+    document.getElementById("loadingMsg").textContent = "Loading AI model…";
+
+    try {
+      const modelURL  = MODEL_URL + "model.json";
+      const metaURL   = MODEL_URL + "metadata.json";
+
+      model = await tmImage.load(modelURL, metaURL);
+      maxPredictions = model.getTotalClasses();
+
+      document.getElementById("loadingMsg").textContent = "Starting camera…";
+      btn.textContent = "📷  Starting camera…";
+
+      webcam = new tmImage.Webcam(400, 300, true); // flip for mirror
+      await webcam.setup();
+      await webcam.play();
+
+      // Insert canvas
+      const wc = document.getElementById("webcamContainer");
+      wc.innerHTML = "";
+      wc.appendChild(webcam.canvas);
+      wc.style.display = "block";
+      document.getElementById("loadingState").style.display = "none";
+
+      // Scan line
+      document.getElementById("scanLine").classList.add("active");
+      document.getElementById("statusDot").classList.add("active");
+
+      btn.textContent = "⏹  Stop";
+      btn.onclick = stopCam;
+      btn.disabled = false;
+      running = true;
+
+      window.requestAnimationFrame(loop);
+    } catch (err) {
+      console.error(err);
+      document.getElementById("loadingMsg").textContent = "Error: " + err.message;
+      btn.textContent = "▶  Retry";
+      btn.disabled = false;
+    }
+  }
+
+  async function loop() {
+    if (!running) return;
+    webcam.update();
+    await predict();
+    window.requestAnimationFrame(loop);
+  }
+
+  async function predict() {
+    const predictions = await model.predict(webcam.canvas);
+
+    let bestClass = null, bestConf = 0;
+
+    predictions.forEach(p => {
+      const name = p.className;
+      const conf = p.probability;
+      const pct  = Math.round(conf * 100);
+
+      const bar = document.getElementById("bar-" + name);
+      const pctEl = document.getElementById("pct-" + name);
+      if (bar) bar.style.width = pct + "%";
+      if (pctEl) pctEl.textContent = pct + "%";
+
+      if (conf > bestConf) { bestConf = conf; bestClass = name; }
+    });
+
+    const threshold = 0.55;
+    const winnerEl  = document.getElementById("winnerValue");
+    const confChip  = document.getElementById("confChip");
+
+    if (bestConf >= threshold) {
+      const pct = Math.round(bestConf * 100);
+      confChip.textContent = pct + "% sure";
+
+      if (bestClass !== prevWinner) {
+        prevWinner = bestClass;
+        winnerEl.innerHTML = `<span class="big-emoji">${EMOJIS[bestClass] || "❓"}</span> ${bestClass}`;
+      }
+    } else {
+      if (prevWinner !== null) {
+        prevWinner = null;
+        winnerEl.innerHTML = `<span style="color:var(--muted);font-size:15px;font-weight:400;">Show your hand…</span>`;
+        confChip.textContent = "–";
+      }
+    }
+  }
+
+  function stopCam() {
+    running = false;
+    if (webcam) webcam.stop();
+
+    document.getElementById("webcamContainer").style.display = "none";
+    document.getElementById("loadingState").style.display   = "flex";
+    document.getElementById("loadingMsg").textContent = "Press Start to initialise camera";
+    document.getElementById("scanLine").classList.remove("active");
+    document.getElementById("statusDot").classList.remove("active");
+
+    ["Rock","Paper","Scissors"].forEach(n => {
+      document.getElementById("bar-" + n).style.width = "0%";
+      document.getElementById("pct-" + n).textContent = "0%";
+    });
+
+    document.getElementById("winnerValue").innerHTML =
+      `<span style="color:var(--muted);font-size:15px;font-weight:400;">Waiting…</span>`;
+    document.getElementById("confChip").textContent = "–";
+    prevWinner = null;
+
+    const btn = document.getElementById("startBtn");
+    btn.textContent = "▶  Start Camera";
+    btn.onclick = init;
+    btn.disabled = false;
+  }
+</script>
+</body>
+</html>
