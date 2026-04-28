@@ -62,6 +62,11 @@ const URL = "https://teachablemachine.withgoogle.com/models/5R-D3HTrB/";
 let model, webcam;
 let running = false;
 
+let userScore = 0;
+let aiScore = 0;
+let lastMove = "";
+let cooldown = false;
+
 async function init() {
   const btn = document.getElementById("startBtn");
 
@@ -75,21 +80,17 @@ async function init() {
 
     const tmImage = window.tmImage;
 
-    // Load model
     model = await tmImage.load(
       URL + "model.json",
       URL + "metadata.json"
     );
 
-    // Start webcam
     webcam = new tmImage.Webcam(300, 300, true);
     await webcam.setup();
     await webcam.play();
 
-    // 🔥 FORCE display camera
     const container = document.getElementById("webcam-container");
     container.innerHTML = "";
-    container.style.display = "block";
     container.appendChild(webcam.canvas);
 
     running = true;
@@ -111,22 +112,54 @@ async function loop() {
 
   webcam.update();
 
-  try {
-    const prediction = await model.predict(webcam.canvas);
+  const prediction = await model.predict(webcam.canvas);
 
-    let best = prediction.reduce((a, b) =>
-      a.probability > b.probability ? a : b
-    );
+  let best = prediction.reduce((a, b) =>
+    a.probability > b.probability ? a : b
+  );
 
-    // 🔥 SHOW OUTPUT ON SCREEN
-    document.getElementById("result").innerText =
-      best.className + " (" + Math.round(best.probability * 100) + "%)";
-
-  } catch (e) {
-    console.error("Prediction error:", e);
+  // Only trigger if confidence high + no spam
+  if (best.probability > 0.75 && !cooldown && best.className !== lastMove) {
+    lastMove = best.className;
+    playGame(best.className);
   }
 
   requestAnimationFrame(loop);
+}
+
+function playGame(user) {
+  cooldown = true;
+
+  const choices = ["Rock", "Paper", "Scissors"];
+  const ai = choices[Math.floor(Math.random() * 3)];
+
+  let result = "";
+
+  if (user === ai) {
+    result = "Draw 😐";
+  } else if (
+    (user === "Rock" && ai === "Scissors") ||
+    (user === "Paper" && ai === "Rock") ||
+    (user === "Scissors" && ai === "Paper")
+  ) {
+    result = "You Win 🎉";
+    userScore++;
+  } else {
+    result = "AI Wins 🤖";
+    aiScore++;
+  }
+
+  // Display result
+  document.getElementById("result").innerHTML =
+    `You: ${user} | AI: ${ai} → <b>${result}</b>`;
+
+  document.getElementById("userScore").innerText = userScore;
+  document.getElementById("aiScore").innerText = aiScore;
+
+  // Cooldown to avoid multiple triggers
+  setTimeout(() => {
+    cooldown = false;
+  }, 2000);
 }
 </script>
 </body>
