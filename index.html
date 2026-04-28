@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Rock Paper Scissors</title>
 
-<!-- FIXED CDN (no latest) -->
+<!-- FIXED SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
@@ -18,12 +18,15 @@ body {
   padding: 20px;
 }
 
+h1 { margin-bottom: 10px; }
+
 button {
   padding: 12px 20px;
   font-size: 16px;
   border-radius: 8px;
   border: none;
   cursor: pointer;
+  margin-top: 10px;
 }
 
 #webcam-container {
@@ -32,7 +35,7 @@ button {
 
 #result {
   margin-top: 20px;
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .score {
@@ -50,12 +53,13 @@ button {
 
 <div id="webcam-container"></div>
 
-<div id="result">Waiting...</div>
+<h2 id="result">Waiting...</h2>
 
 <div class="score">
   You: <span id="userScore">0</span> |
   AI: <span id="aiScore">0</span>
 </div>
+
 <script>
 const URL = "https://teachablemachine.withgoogle.com/models/5R-D3HTrB/";
 
@@ -67,6 +71,7 @@ let aiScore = 0;
 let lastMove = "";
 let cooldown = false;
 
+// Start app
 async function init() {
   const btn = document.getElementById("startBtn");
 
@@ -80,11 +85,13 @@ async function init() {
 
     const tmImage = window.tmImage;
 
+    // Load model
     model = await tmImage.load(
       URL + "model.json",
       URL + "metadata.json"
     );
 
+    // Start camera
     webcam = new tmImage.Webcam(300, 300, true);
     await webcam.setup();
     await webcam.play();
@@ -107,6 +114,7 @@ async function init() {
   }
 }
 
+// Loop
 async function loop() {
   if (!running) return;
 
@@ -118,7 +126,7 @@ async function loop() {
     a.probability > b.probability ? a : b
   );
 
-  // Only trigger if confidence high + no spam
+  // Trigger game
   if (best.probability > 0.75 && !cooldown && best.className !== lastMove) {
     lastMove = best.className;
     playGame(best.className);
@@ -127,6 +135,7 @@ async function loop() {
   requestAnimationFrame(loop);
 }
 
+// Game logic
 function playGame(user) {
   cooldown = true;
 
@@ -149,18 +158,18 @@ function playGame(user) {
     aiScore++;
   }
 
-  // Display result
   document.getElementById("result").innerHTML =
     `You: ${user} | AI: ${ai} → <b>${result}</b>`;
 
   document.getElementById("userScore").innerText = userScore;
   document.getElementById("aiScore").innerText = aiScore;
 
-  // Cooldown to avoid multiple triggers
+  // Prevent rapid repeat
   setTimeout(() => {
     cooldown = false;
   }, 2000);
 }
 </script>
+
 </body>
 </html>
