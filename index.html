@@ -137,28 +137,36 @@ function playGame(user) {
   cooldown = true;
   round++;
 
+  // ✅ Normalize (VERY IMPORTANT FIX)
+  user = user.toLowerCase();
+
   let ai = "";
 
   if (round % 2 === 1) {
-    // 🟢 USER WINS
-    if (user === "Rock") ai = "Scissors";
-    else if (user === "Paper") ai = "Rock";
-    else ai = "Paper";
+    // 🟢 USER SHOULD WIN
+    if (user === "rock") ai = "scissors";
+    else if (user === "paper") ai = "rock";
+    else if (user === "scissors") ai = "paper";
   } else {
-    // 🔴 AI WINS
-    if (user === "Rock") ai = "Paper";
-    else if (user === "Paper") ai = "Scissors";
-    else ai = "Rock";
+    // 🔴 AI SHOULD WIN
+    if (user === "rock") ai = "paper";
+    else if (user === "paper") ai = "scissors";
+    else if (user === "scissors") ai = "rock";
   }
+
+  // Capitalize for display
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const userDisplay = cap(user);
+  const aiDisplay = cap(ai);
 
   let result = "";
 
   if (user === ai) {
     result = "Draw 😐";
   } else if (
-    (user === "Rock" && ai === "Scissors") ||
-    (user === "Paper" && ai === "Rock") ||
-    (user === "Scissors" && ai === "Paper")
+    (user === "rock" && ai === "scissors") ||
+    (user === "paper" && ai === "rock") ||
+    (user === "scissors" && ai === "paper")
   ) {
     result = "You Win 🎉";
     userScore++;
@@ -168,7 +176,7 @@ function playGame(user) {
   }
 
   document.getElementById("result").innerHTML =
-    `Round ${round}: You: ${user} | AI: ${ai} → <b>${result}</b>`;
+    `Round ${round}: You: ${userDisplay} | AI: ${aiDisplay} → <b>${result}</b>`;
 
   document.getElementById("userScore").innerText = userScore;
   document.getElementById("aiScore").innerText = aiScore;
@@ -176,6 +184,7 @@ function playGame(user) {
   setTimeout(() => {
     cooldown = false;
   }, 2000);
+}
 }
 </script>
 
