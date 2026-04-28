@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Rock Paper Scissors</title>
 
+<!-- Stable versions -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
@@ -26,7 +27,7 @@ button {
 #webcam-container { margin-top: 20px; }
 #result { margin-top: 20px; font-size: 22px; }
 .score { margin-top: 15px; font-size: 18px; }
-.hint { margin-top: 10px; font-size: 14px; color: #aaa; }
+.hint { margin-top: 10px; color: #aaa; }
 </style>
 </head>
 
@@ -38,7 +39,7 @@ button {
 
 <div id="webcam-container"></div>
 
-<p class="hint">✋ Hold your hand steady for 1 second to play</p>
+<p class="hint">✋ Hold your hand steady for ~1 second</p>
 
 <h2 id="result">Waiting...</h2>
 
@@ -55,15 +56,15 @@ let running = false;
 
 let userScore = 0;
 let aiScore = 0;
-
-let cooldown = false;
 let round = 0;
 
-// stability detection
+let cooldown = false;
+
+// stability control
 let stableCount = 0;
 let lastDetected = "";
 
-// button event
+// button
 document.getElementById("startBtn").addEventListener("click", toggleCamera);
 
 async function toggleCamera() {
@@ -85,10 +86,7 @@ async function startCamera() {
 
     const tmImage = window.tmImage;
 
-    model = await tmImage.load(
-      URL + "model.json",
-      URL + "metadata.json"
-    );
+    model = await tmImage.load(URL + "model.json", URL + "metadata.json");
 
     webcam = new tmImage.Webcam(300, 300, true);
     await webcam.setup();
@@ -133,27 +131,35 @@ async function loop() {
       a.probability > b.probability ? a : b
     );
 
-    const current = best.className.toLowerCase().trim();
-    const confidence = best.probability;
+    let current = best.className.toLowerCase().trim();
+    let confidence = best.probability;
 
-    if (confidence > 0.80) {
-
-      if (current === lastDetected) {
-        stableCount++;
-      } else {
-        stableCount = 0;
-        lastDetected = current;
-      }
-
-      // trigger only after stable detection
-      if (stableCount > 20 && !cooldown) {
-        playGame(current);
-        stableCount = 0;
-      }
-
-    } else {
+    // ❌ Ignore weak detection (main fix)
+    if (confidence < 0.90) {
       stableCount = 0;
       lastDetected = "";
+      return requestAnimationFrame(loop);
+    }
+
+    // ❌ Ignore unknown classes
+    if (!["rock", "paper", "scissors"].includes(current)) {
+      stableCount = 0;
+      lastDetected = "";
+      return requestAnimationFrame(loop);
+    }
+
+    // ✅ Stability check
+    if (current === lastDetected) {
+      stableCount++;
+    } else {
+      stableCount = 0;
+      lastDetected = current;
+    }
+
+    // ✅ Trigger only after stable hold
+    if (stableCount > 25 && !cooldown) {
+      playGame(current);
+      stableCount = 0;
     }
 
   } catch (e) {
@@ -163,7 +169,7 @@ async function loop() {
   requestAnimationFrame(loop);
 }
 
-// alternating game logic
+// 🎮 alternating logic
 function playGame(user) {
   cooldown = true;
   round++;
