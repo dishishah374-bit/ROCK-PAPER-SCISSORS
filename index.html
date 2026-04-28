@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Rock Paper Scissors</title>
 
-<!-- Stable versions -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
@@ -39,7 +38,7 @@ button {
 
 <div id="webcam-container"></div>
 
-<p class="hint">✋ Hold your hand steady for ~1 second</p>
+<p class="hint">✋ Show hand clearly → remove → show next move</p>
 
 <h2 id="result">Waiting...</h2>
 
@@ -60,11 +59,12 @@ let round = 0;
 
 let cooldown = false;
 
-// stability control
+// detection control
 let stableCount = 0;
 let lastDetected = "";
+let lastPlayed = "";
+let handPresent = false;
 
-// button
 document.getElementById("startBtn").addEventListener("click", toggleCamera);
 
 async function toggleCamera() {
@@ -134,21 +134,25 @@ async function loop() {
     let current = best.className.toLowerCase().trim();
     let confidence = best.probability;
 
-    // ❌ Ignore weak detection (main fix)
-    if (confidence < 0.90) {
+    // 🔒 VERY STRICT FILTER
+    if (confidence < 0.95) {
       stableCount = 0;
       lastDetected = "";
+
+      // Detect "no hand"
+      handPresent = false;
+      lastPlayed = "";
+
       return requestAnimationFrame(loop);
     }
 
-    // ❌ Ignore unknown classes
     if (!["rock", "paper", "scissors"].includes(current)) {
-      stableCount = 0;
-      lastDetected = "";
       return requestAnimationFrame(loop);
     }
 
-    // ✅ Stability check
+    handPresent = true;
+
+    // stability check
     if (current === lastDetected) {
       stableCount++;
     } else {
@@ -156,10 +160,17 @@ async function loop() {
       lastDetected = current;
     }
 
-    // ✅ Trigger only after stable hold
-    if (stableCount > 25 && !cooldown) {
+    // ✅ Trigger ONLY if:
+    // - stable
+    // - not in cooldown
+    // - new gesture
+    if (
+      stableCount > 30 &&
+      !cooldown &&
+      current !== lastPlayed
+    ) {
+      lastPlayed = current;
       playGame(current);
-      stableCount = 0;
     }
 
   } catch (e) {
@@ -177,12 +188,10 @@ function playGame(user) {
   let ai = "";
 
   if (round % 2 === 1) {
-    // user wins
     if (user === "rock") ai = "scissors";
     else if (user === "paper") ai = "rock";
     else ai = "paper";
   } else {
-    // ai wins
     if (user === "rock") ai = "paper";
     else if (user === "paper") ai = "scissors";
     else ai = "rock";
@@ -192,9 +201,7 @@ function playGame(user) {
 
   let result = "";
 
-  if (user === ai) {
-    result = "Draw 😐";
-  } else if (
+  if (
     (user === "rock" && ai === "scissors") ||
     (user === "paper" && ai === "rock") ||
     (user === "scissors" && ai === "paper")
