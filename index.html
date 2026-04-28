@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RPS AI</title>
+<title>AI Rock Paper Scissors</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
@@ -14,35 +14,54 @@ body {
   background: #0f0c1d;
   color: white;
   text-align: center;
-  padding: 20px;
 }
+
+button {
+  padding: 12px 20px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
 #webcam-container {
   margin-top: 20px;
 }
-button {
-  padding: 12px 20px;
-  font-size: 16px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
+
+#result {
+  font-size: 22px;
+  margin-top: 20px;
+}
+
+.score {
+  margin-top: 15px;
+  font-size: 18px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Rock Paper Scissors AI</h1>
+<h1>🤖 AI Rock Paper Scissors</h1>
 
 <button onclick="init()" id="startBtn">Start Camera</button>
 
 <div id="webcam-container"></div>
-<div id="label-container"></div>
+
+<div id="result">Waiting...</div>
+
+<div class="score">
+  You: <span id="userScore">0</span> |
+  AI: <span id="aiScore">0</span>
+</div>
 
 <script>
 const URL = "https://teachablemachine.withgoogle.com/models/5R-D3HTrB/";
 
-let model, webcam, labelContainer, maxPredictions;
-let tmImage = window.tmImage;
+let model, webcam;
+let userScore = 0;
+let aiScore = 0;
 
 async function init() {
   const btn = document.getElementById("startBtn");
@@ -50,27 +69,28 @@ async function init() {
   btn.disabled = true;
 
   try {
+    const tmImage = window.tmImage;
+
+    if (!tmImage) {
+      throw new Error("Teachable Machine not loaded");
+    }
+
     const modelURL = URL + "model.json";
     const metadataURL = URL + "metadata.json";
 
     model = await tmImage.load(modelURL, metadataURL);
-    maxPredictions = model.getTotalClasses();
 
     webcam = new tmImage.Webcam(300, 300, true);
     await webcam.setup();
     await webcam.play();
 
-    document.getElementById("webcam-container").innerHTML = "";
     document.getElementById("webcam-container").appendChild(webcam.canvas);
-
-    labelContainer = document.getElementById("label-container");
-    labelContainer.innerHTML = "";
 
     window.requestAnimationFrame(loop);
 
-    btn.innerText = "Camera Running";
+    btn.innerText = "Running";
   } catch (err) {
-    alert("Error: " + err.message);
+    alert(err.message);
     console.error(err);
     btn.innerText = "Retry";
     btn.disabled = false;
@@ -87,22 +107,45 @@ async function predict() {
   const prediction = await model.predict(webcam.canvas);
 
   let highest = 0;
+  let userMove = "";
+
+  prediction.forEach(p => {
+    if (p.probability > highest) {
+      highest = p.probability;
+      userMove = p.className;
+    }
+  });
+
+  if (highest > 0.7) {
+    playGame(userMove);
+  }
+}
+
+function playGame(user) {
+  const choices = ["Rock", "Paper", "Scissors"];
+  const ai = choices[Math.floor(Math.random() * 3)];
+
   let result = "";
 
-  for (let i = 0; i < prediction.length; i++) {
-    const prob = prediction[i].probability;
-
-    if (prob > highest) {
-      highest = prob;
-      result = prediction[i].className;
-    }
-  }
-
-  if (highest > 0.6) {
-    labelContainer.innerHTML = `<h2>${result}</h2>`;
+  if (user === ai) {
+    result = "Draw 😐";
+  } else if (
+    (user === "Rock" && ai === "Scissors") ||
+    (user === "Paper" && ai === "Rock") ||
+    (user === "Scissors" && ai === "Paper")
+  ) {
+    result = "You Win 🎉";
+    userScore++;
   } else {
-    labelContainer.innerHTML = `<h2>Show hand properly</h2>`;
+    result = "AI Wins 🤖";
+    aiScore++;
   }
+
+  document.getElementById("result").innerHTML =
+    `You: ${user} | AI: ${ai} → <b>${result}</b>`;
+
+  document.getElementById("userScore").innerText = userScore;
+  document.getElementById("aiScore").innerText = aiScore;
 }
 </script>
 
