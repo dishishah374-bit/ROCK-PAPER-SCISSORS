@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Rock Paper Scissors</title>
 
-<!-- FIXED SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
@@ -17,8 +16,6 @@ body {
   text-align: center;
   padding: 20px;
 }
-
-h1 { margin-bottom: 10px; }
 
 button {
   padding: 12px 20px;
@@ -71,7 +68,9 @@ let aiScore = 0;
 let lastMove = "";
 let cooldown = false;
 
-// Start app
+// 🔁 Round counter for alternating wins
+let round = 0;
+
 async function init() {
   const btn = document.getElementById("startBtn");
 
@@ -114,7 +113,6 @@ async function init() {
   }
 }
 
-// Loop
 async function loop() {
   if (!running) return;
 
@@ -126,7 +124,6 @@ async function loop() {
     a.probability > b.probability ? a : b
   );
 
-  // Trigger game
   if (best.probability > 0.75 && !cooldown && best.className !== lastMove) {
     lastMove = best.className;
     playGame(best.className);
@@ -135,12 +132,24 @@ async function loop() {
   requestAnimationFrame(loop);
 }
 
-// Game logic
+// 🎮 ALTERNATING GAME LOGIC
 function playGame(user) {
   cooldown = true;
+  round++;
 
-  const choices = ["Rock", "Paper", "Scissors"];
-  const ai = choices[Math.floor(Math.random() * 3)];
+  let ai = "";
+
+  if (round % 2 === 1) {
+    // 🟢 USER WINS
+    if (user === "Rock") ai = "Scissors";
+    else if (user === "Paper") ai = "Rock";
+    else ai = "Paper";
+  } else {
+    // 🔴 AI WINS
+    if (user === "Rock") ai = "Paper";
+    else if (user === "Paper") ai = "Scissors";
+    else ai = "Rock";
+  }
 
   let result = "";
 
@@ -159,12 +168,11 @@ function playGame(user) {
   }
 
   document.getElementById("result").innerHTML =
-    `You: ${user} | AI: ${ai} → <b>${result}</b>`;
+    `Round ${round}: You: ${user} | AI: ${ai} → <b>${result}</b>`;
 
   document.getElementById("userScore").innerText = userScore;
   document.getElementById("aiScore").innerText = aiScore;
 
-  // Prevent rapid repeat
   setTimeout(() => {
     cooldown = false;
   }, 2000);
