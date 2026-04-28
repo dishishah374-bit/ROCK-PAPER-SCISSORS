@@ -69,9 +69,8 @@ async function init() {
     btn.innerText = "Loading...";
     btn.disabled = true;
 
-    // ✅ HARD CHECK (fix your issue)
-    if (typeof window.tmImage === "undefined") {
-      throw new Error("Library not loaded. Refresh page.");
+    if (!window.tmImage) {
+      throw new Error("Library not loaded");
     }
 
     const tmImage = window.tmImage;
@@ -82,14 +81,15 @@ async function init() {
       URL + "metadata.json"
     );
 
-    // Start camera
+    // Start webcam
     webcam = new tmImage.Webcam(300, 300, true);
     await webcam.setup();
     await webcam.play();
 
-    // Show camera
+    // 🔥 FORCE display camera
     const container = document.getElementById("webcam-container");
     container.innerHTML = "";
+    container.style.display = "block";
     container.appendChild(webcam.canvas);
 
     running = true;
@@ -98,7 +98,7 @@ async function init() {
     loop();
 
   } catch (err) {
-    alert("ERROR: " + err.message);
+    alert(err.message);
     console.error(err);
 
     btn.innerText = "Retry";
@@ -111,14 +111,19 @@ async function loop() {
 
   webcam.update();
 
-  const prediction = await model.predict(webcam.canvas);
+  try {
+    const prediction = await model.predict(webcam.canvas);
 
-  let best = prediction.reduce((a, b) =>
-    a.probability > b.probability ? a : b
-  );
+    let best = prediction.reduce((a, b) =>
+      a.probability > b.probability ? a : b
+    );
 
-  if (best.probability > 0.7) {
-    console.log("Detected:", best.className);
+    // 🔥 SHOW OUTPUT ON SCREEN
+    document.getElementById("result").innerText =
+      best.className + " (" + Math.round(best.probability * 100) + "%)";
+
+  } catch (e) {
+    console.error("Prediction error:", e);
   }
 
   requestAnimationFrame(loop);
