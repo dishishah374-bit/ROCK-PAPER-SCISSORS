@@ -26,6 +26,7 @@ button {
 #webcam-container { margin-top: 20px; }
 #result { margin-top: 20px; font-size: 22px; }
 .score { margin-top: 15px; font-size: 18px; }
+.hint { margin-top: 10px; font-size: 14px; color: #aaa; }
 </style>
 </head>
 
@@ -36,6 +37,8 @@ button {
 <button id="startBtn">Start Camera</button>
 
 <div id="webcam-container"></div>
+
+<p class="hint">✋ Hold your hand steady for 1 second to play</p>
 
 <h2 id="result">Waiting...</h2>
 
@@ -49,11 +52,18 @@ const URL = "https://teachablemachine.withgoogle.com/models/5R-D3HTrB/";
 
 let model, webcam;
 let running = false;
-let userScore = 0, aiScore = 0;
-let lastMove = "", cooldown = false;
+
+let userScore = 0;
+let aiScore = 0;
+
+let cooldown = false;
 let round = 0;
 
-// ✅ BUTTON EVENT (more stable than inline onclick)
+// stability detection
+let stableCount = 0;
+let lastDetected = "";
+
+// button event
 document.getElementById("startBtn").addEventListener("click", toggleCamera);
 
 async function toggleCamera() {
@@ -75,7 +85,10 @@ async function startCamera() {
 
     const tmImage = window.tmImage;
 
-    model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+    model = await tmImage.load(
+      URL + "model.json",
+      URL + "metadata.json"
+    );
 
     webcam = new tmImage.Webcam(300, 300, true);
     await webcam.setup();
@@ -92,7 +105,7 @@ async function startCamera() {
     loop();
 
   } catch (err) {
-    alert("Camera Error: " + err.message);
+    alert("Error: " + err.message);
     console.error(err);
 
     btn.innerText = "Retry";
@@ -120,34 +133,50 @@ async function loop() {
       a.probability > b.probability ? a : b
     );
 
-    if (best.probability > 0.75 && !cooldown && best.className !== lastMove) {
-      lastMove = best.className;
-      playGame(best.className);
+    const current = best.className.toLowerCase().trim();
+    const confidence = best.probability;
+
+    if (confidence > 0.80) {
+
+      if (current === lastDetected) {
+        stableCount++;
+      } else {
+        stableCount = 0;
+        lastDetected = current;
+      }
+
+      // trigger only after stable detection
+      if (stableCount > 20 && !cooldown) {
+        playGame(current);
+        stableCount = 0;
+      }
+
+    } else {
+      stableCount = 0;
+      lastDetected = "";
     }
 
   } catch (e) {
-    console.error("Prediction error:", e);
+    console.error(e);
   }
 
   requestAnimationFrame(loop);
 }
 
-// 🎮 FIXED ALTERNATING LOGIC
+// alternating game logic
 function playGame(user) {
   cooldown = true;
   round++;
 
-  user = user.toLowerCase().trim();
-
   let ai = "";
 
   if (round % 2 === 1) {
-    // USER WINS
+    // user wins
     if (user === "rock") ai = "scissors";
     else if (user === "paper") ai = "rock";
     else ai = "paper";
   } else {
-    // AI WINS
+    // ai wins
     if (user === "rock") ai = "paper";
     else if (user === "paper") ai = "scissors";
     else ai = "rock";
@@ -177,7 +206,9 @@ function playGame(user) {
   document.getElementById("userScore").innerText = userScore;
   document.getElementById("aiScore").innerText = aiScore;
 
-  setTimeout(() => cooldown = false, 2000);
+  setTimeout(() => {
+    cooldown = false;
+  }, 2000);
 }
 </script>
 
