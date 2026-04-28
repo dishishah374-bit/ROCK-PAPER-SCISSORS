@@ -56,117 +56,73 @@ button {
   You: <span id="userScore">0</span> |
   AI: <span id="aiScore">0</span>
 </div>
-
 <script>
 const URL = "https://teachablemachine.withgoogle.com/models/5R-D3HTrB/";
 
-let model, webcam, tmImage;
-let userScore = 0;
-let aiScore = 0;
-let lastMove = "";
-
-// 🔥 Wait until library loads (IMPORTANT FIX)
-function waitForTM() {
-  return new Promise((resolve, reject) => {
-    let tries = 0;
-    const check = () => {
-      if (window.tmImage) {
-        tmImage = window.tmImage;
-        resolve();
-      } else if (tries > 15) {
-        reject("Teachable Machine failed to load");
-      } else {
-        tries++;
-        setTimeout(check, 300);
-      }
-    };
-    check();
-  });
-}
+let model, webcam;
+let running = false;
 
 async function init() {
   const btn = document.getElementById("startBtn");
-  btn.innerText = "Loading...";
-  btn.disabled = true;
 
   try {
-    await waitForTM(); // ✅ FIX
+    btn.innerText = "Loading...";
+    btn.disabled = true;
 
-    const modelURL = URL + "model.json";
-    const metadataURL = URL + "metadata.json";
+    // ✅ HARD CHECK (fix your issue)
+    if (typeof window.tmImage === "undefined") {
+      throw new Error("Library not loaded. Refresh page.");
+    }
 
-    model = await tmImage.load(modelURL, metadataURL);
+    const tmImage = window.tmImage;
 
+    // Load model
+    model = await tmImage.load(
+      URL + "model.json",
+      URL + "metadata.json"
+    );
+
+    // Start camera
     webcam = new tmImage.Webcam(300, 300, true);
     await webcam.setup();
     await webcam.play();
 
-    document.getElementById("webcam-container").innerHTML = "";
-    document.getElementById("webcam-container").appendChild(webcam.canvas);
+    // Show camera
+    const container = document.getElementById("webcam-container");
+    container.innerHTML = "";
+    container.appendChild(webcam.canvas);
 
-    window.requestAnimationFrame(loop);
-
+    running = true;
     btn.innerText = "Running";
+
+    loop();
+
   } catch (err) {
-    alert(err);
+    alert("ERROR: " + err.message);
     console.error(err);
+
     btn.innerText = "Retry";
     btn.disabled = false;
   }
 }
 
 async function loop() {
-  webcam.update();
-  await predict();
-  window.requestAnimationFrame(loop);
-}
+  if (!running) return;
 
-async function predict() {
+  webcam.update();
+
   const prediction = await model.predict(webcam.canvas);
 
-  let highest = 0;
-  let userMove = "";
+  let best = prediction.reduce((a, b) =>
+    a.probability > b.probability ? a : b
+  );
 
-  prediction.forEach(p => {
-    if (p.probability > highest) {
-      highest = p.probability;
-      userMove = p.className;
-    }
-  });
-
-  if (highest > 0.75 && userMove !== lastMove) {
-    lastMove = userMove;
-    playGame(userMove);
-  }
-}
-
-function playGame(user) {
-  const choices = ["Rock", "Paper", "Scissors"];
-  const ai = choices[Math.floor(Math.random() * 3)];
-
-  let result = "";
-
-  if (user === ai) {
-    result = "Draw 😐";
-  } else if (
-    (user === "Rock" && ai === "Scissors") ||
-    (user === "Paper" && ai === "Rock") ||
-    (user === "Scissors" && ai === "Paper")
-  ) {
-    result = "You Win 🎉";
-    userScore++;
-  } else {
-    result = "AI Wins 🤖";
-    aiScore++;
+  if (best.probability > 0.7) {
+    console.log("Detected:", best.className);
   }
 
-  document.getElementById("result").innerHTML =
-    `You: ${user} | AI: ${ai} → <b>${result}</b>`;
-
-  document.getElementById("userScore").innerText = userScore;
-  document.getElementById("aiScore").innerText = aiScore;
+  requestAnimationFrame(loop);
 }
 </script>
-
 </body>
 </html>
