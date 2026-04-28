@@ -16,29 +16,16 @@ body {
   text-align: center;
   padding: 20px;
 }
-
 button {
   padding: 12px 20px;
   font-size: 16px;
   border-radius: 8px;
   border: none;
   cursor: pointer;
-  margin-top: 10px;
 }
-
-#webcam-container {
-  margin-top: 20px;
-}
-
-#result {
-  margin-top: 20px;
-  font-size: 22px;
-}
-
-.score {
-  margin-top: 15px;
-  font-size: 18px;
-}
+#webcam-container { margin-top: 20px; }
+#result { margin-top: 20px; font-size: 22px; }
+.score { margin-top: 15px; font-size: 18px; }
 </style>
 </head>
 
@@ -46,7 +33,7 @@ button {
 
 <h1>🤖 AI Rock Paper Scissors</h1>
 
-<button id="startBtn" onclick="init()">Start Camera</button>
+<button id="startBtn">Start Camera</button>
 
 <div id="webcam-container"></div>
 
@@ -62,35 +49,34 @@ const URL = "https://teachablemachine.withgoogle.com/models/5R-D3HTrB/";
 
 let model, webcam;
 let running = false;
-
-let userScore = 0;
-let aiScore = 0;
-let lastMove = "";
-let cooldown = false;
-
-// 🔁 Round counter for alternating wins
+let userScore = 0, aiScore = 0;
+let lastMove = "", cooldown = false;
 let round = 0;
 
-async function init() {
+// ✅ BUTTON EVENT (more stable than inline onclick)
+document.getElementById("startBtn").addEventListener("click", toggleCamera);
+
+async function toggleCamera() {
+  if (!running) {
+    await startCamera();
+  } else {
+    stopCamera();
+  }
+}
+
+async function startCamera() {
   const btn = document.getElementById("startBtn");
 
   try {
     btn.innerText = "Loading...";
     btn.disabled = true;
 
-    if (!window.tmImage) {
-      throw new Error("Library not loaded");
-    }
+    if (!window.tmImage) throw new Error("Library not loaded");
 
     const tmImage = window.tmImage;
 
-    // Load model
-    model = await tmImage.load(
-      URL + "model.json",
-      URL + "metadata.json"
-    );
+    model = await tmImage.load(URL + "model.json", URL + "metadata.json");
 
-    // Start camera
     webcam = new tmImage.Webcam(300, 300, true);
     await webcam.setup();
     await webcam.play();
@@ -100,12 +86,13 @@ async function init() {
     container.appendChild(webcam.canvas);
 
     running = true;
-    btn.innerText = "Running";
+    btn.innerText = "Stop Camera";
+    btn.disabled = false;
 
     loop();
 
   } catch (err) {
-    alert(err.message);
+    alert("Camera Error: " + err.message);
     console.error(err);
 
     btn.innerText = "Retry";
@@ -113,51 +100,60 @@ async function init() {
   }
 }
 
+function stopCamera() {
+  if (webcam) webcam.stop();
+
+  running = false;
+  document.getElementById("webcam-container").innerHTML = "";
+  document.getElementById("startBtn").innerText = "Start Camera";
+}
+
 async function loop() {
   if (!running) return;
 
   webcam.update();
 
-  const prediction = await model.predict(webcam.canvas);
+  try {
+    const prediction = await model.predict(webcam.canvas);
 
-  let best = prediction.reduce((a, b) =>
-    a.probability > b.probability ? a : b
-  );
+    let best = prediction.reduce((a, b) =>
+      a.probability > b.probability ? a : b
+    );
 
-  if (best.probability > 0.75 && !cooldown && best.className !== lastMove) {
-    lastMove = best.className;
-    playGame(best.className);
+    if (best.probability > 0.75 && !cooldown && best.className !== lastMove) {
+      lastMove = best.className;
+      playGame(best.className);
+    }
+
+  } catch (e) {
+    console.error("Prediction error:", e);
   }
 
   requestAnimationFrame(loop);
 }
 
-// 🎮 ALTERNATING GAME LOGIC
+// 🎮 FIXED ALTERNATING LOGIC
 function playGame(user) {
   cooldown = true;
   round++;
 
-  // ✅ Normalize (VERY IMPORTANT FIX)
-  user = user.toLowerCase();
+  user = user.toLowerCase().trim();
 
   let ai = "";
 
   if (round % 2 === 1) {
-    // 🟢 USER SHOULD WIN
+    // USER WINS
     if (user === "rock") ai = "scissors";
     else if (user === "paper") ai = "rock";
-    else if (user === "scissors") ai = "paper";
+    else ai = "paper";
   } else {
-    // 🔴 AI SHOULD WIN
+    // AI WINS
     if (user === "rock") ai = "paper";
     else if (user === "paper") ai = "scissors";
-    else if (user === "scissors") ai = "rock";
+    else ai = "rock";
   }
 
-  // Capitalize for display
-  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-  const userDisplay = cap(user);
-  const aiDisplay = cap(ai);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
   let result = "";
 
@@ -176,15 +172,12 @@ function playGame(user) {
   }
 
   document.getElementById("result").innerHTML =
-    `Round ${round}: You: ${userDisplay} | AI: ${aiDisplay} → <b>${result}</b>`;
+    `Round ${round}: You: ${cap(user)} | AI: ${cap(ai)} → <b>${result}</b>`;
 
   document.getElementById("userScore").innerText = userScore;
   document.getElementById("aiScore").innerText = aiScore;
 
-  setTimeout(() => {
-    cooldown = false;
-  }, 2000);
-}
+  setTimeout(() => cooldown = false, 2000);
 }
 </script>
 
